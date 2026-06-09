@@ -1,0 +1,93 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:13px;color:var(--color-text-primary)}
+.srow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.sc{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px;text-align:center}
+.sn{font-size:22px;font-weight:500;line-height:1.2}
+.sl{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.srow2{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.pill{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.legrow{display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary)}
+.ld{width:22px;height:3px;border-radius:1px}
+.cbox{position:relative;height:200px;margin-bottom:14px}
+.fbox{background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:12px 14px;font-size:12px;line-height:2}
+</style>
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">Visualizer tương tác Cohen's d — kéo slider để thay đổi effect size</h2>
+<div class="srow">
+  <div class="sc"><div class="sn" id="sv-d" style="color:#185FA5">0.55</div><div class="sl">Cohen's d</div></div>
+  <div class="sc"><div class="sn" id="sv-pct" style="color:#1D9E75">69%</div><div class="sl">Nhóm A vượt qua</div></div>
+  <div class="sc"><div class="sn" id="sv-ovl" style="color:#854F0B">63%</div><div class="sl">Overlap (trùng nhau)</div></div>
+</div>
+<div class="srow2">
+  <span style="font-size:11px;color:var(--color-text-secondary)">d = 0</span>
+  <input type="range" min="0" max="2" step="0.05" value="0.55" id="dsl" style="flex:1">
+  <span style="font-size:11px;color:var(--color-text-secondary)">d = 2</span>
+  <span class="pill" id="spill" style="background:#E6F1FB;color:#185FA5">Trung bình</span>
+</div>
+<div class="legrow">
+  <span class="li"><span class="ld" style="background:#888780"></span>Nhóm B — đối chứng (không dùng kỹ thuật)</span>
+  <span class="li"><span class="ld" style="background:#1D9E75"></span>Nhóm A — can thiệp (Active Recall, v.v.)</span>
+</div>
+<div class="cbox">
+  <canvas id="bc" role="img" aria-label="Hai đường chuẩn phân phối chồng nhau. Nhóm B màu xám, nhóm A màu xanh. Khoảng cách giữa hai trung bình tương ứng với giá trị d.">Biểu đồ hai đường chuẩn phân phối.</canvas>
+</div>
+<div class="fbox">
+  <strong>Ví dụ TOEIC</strong> (SD cố định = 100, μ<sub>B</sub> = 600)<br>
+  d = (μ<sub>A</sub> − μ<sub>B</sub>) ÷ SD = (<span id="ex-ma">655</span> − 600) ÷ 100 = <strong id="ex-d" style="color:#185FA5">0.55</strong><br>
+  Nhóm A đạt trung bình <span id="ex-ma2">655</span> điểm — cao hơn nhóm B <strong id="ex-df">55</strong> điểm
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const MUB=600,SD=100,NP=280;
+function pdf(x){return Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI)}
+function erf(x){const s=x<0?-1:1,a=Math.abs(x),t=1/(1+0.3275911*a);return s*(1-(((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t)*Math.exp(-a*a))}
+function cdf(x){return 0.5*(1+erf(x/Math.SQRT2))}
+function ovlp(d){return 2*cdf(-Math.abs(d)/2)}
+function bnd(d){if(d<0.2)return{t:'Không đáng kể',bg:'#FCEBEB',c:'#A32D2D'};if(d<0.5)return{t:'Nhỏ',bg:'#FAEEDA',c:'#854F0B'};if(d<0.8)return{t:'Trung bình',bg:'#E6F1FB',c:'#185FA5'};return{t:'Lớn',bg:'#EAF3DE',c:'#1D9E75'}}
+function pts(d){
+  const lo=MUB-3.8*SD,hi=MUB+(d+3.8)*SD,step=(hi-lo)/NP;
+  const ctrl=[],trt=[],vb=[],va=[];
+  for(let i=0;i<=NP;i++){const x=lo+i*step;ctrl.push({x,y:pdf((x-MUB)/SD)/SD});trt.push({x,y:pdf((x-(MUB+d*SD))/SD)/SD})}
+  const ph=pdf(0)/SD;
+  vb.push({x:MUB,y:0},{x:MUB,y:ph*1.1});
+  va.push({x:MUB+d*SD,y:0},{x:MUB+d*SD,y:ph*1.1});
+  return{ctrl,trt,vb,va}
+}
+let d=0.55;
+const {ctrl,trt,vb,va}=pts(d);
+const chart=new Chart(document.getElementById('bc').getContext('2d'),{
+  type:'line',
+  data:{datasets:[
+    {data:ctrl,fill:true,borderColor:'#888780',backgroundColor:'rgba(136,135,128,0.22)',pointRadius:0,borderWidth:2,tension:0.3},
+    {data:trt,fill:true,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.22)',pointRadius:0,borderWidth:2,tension:0.3},
+    {data:vb,fill:false,borderColor:'rgba(136,135,128,0.65)',borderDash:[5,4],pointRadius:0,borderWidth:1.5},
+    {data:va,fill:false,borderColor:'rgba(29,158,117,0.65)',borderDash:[5,4],pointRadius:0,borderWidth:1.5},
+  ]},
+  options:{
+    responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},tooltip:{enabled:false}},
+    scales:{
+      x:{type:'linear',ticks:{font:{size:10},callback:v=>Math.round(v),maxTicksLimit:8},grid:{color:'rgba(128,128,128,0.07)'},title:{display:true,text:'Điểm số',font:{size:11},color:'rgba(128,128,128,0.7)'}},
+      y:{display:false,min:0}
+    }
+  }
+});
+function upd(){
+  d=+document.getElementById('dsl').value;
+  document.getElementById('sv-d').textContent=d.toFixed(2);
+  document.getElementById('sv-pct').textContent=Math.round(cdf(d)*100)+'%';
+  document.getElementById('sv-ovl').textContent=Math.round(ovlp(d)*100)+'%';
+  const b=bnd(d);
+  const p=document.getElementById('spill');p.textContent=b.t;p.style.background=b.bg;p.style.color=b.c;
+  const {ctrl:c,trt:t,vb:vb2,va:va2}=pts(d);
+  [c,t,vb2,va2].forEach((dat,i)=>chart.data.datasets[i].data=dat);
+  chart.update('none');
+  const ma=Math.round(MUB+d*SD);
+  ['ex-ma','ex-ma2'].forEach(id=>document.getElementById(id).textContent=ma);
+  document.getElementById('ex-df').textContent=Math.round(d*SD);
+  document.getElementById('ex-d').textContent=d.toFixed(2);
+}
+document.getElementById('dsl').addEventListener('input',upd);
+</script>
